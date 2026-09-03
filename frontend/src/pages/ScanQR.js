@@ -5,7 +5,7 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import API from '../api/axios';
 
 const ScanQR = () => {
-  useParams();
+  const { courseId } = useParams(); // eslint-disable-line no-unused-vars
   const navigate = useNavigate();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
