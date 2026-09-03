@@ -5,14 +5,14 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import API from '../api/axios';
 
 const ScanQR = () => {
-  const { courseId } = useParams();
+  const { courseId: _courseId } = useParams();
   const navigate = useNavigate();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [permissionStep, setPermissionStep] = useState('idle');
   const [permissionError, setPermissionError] = useState('');
-  const scannerRef = useRef(null);
+  const scannerRef = useRef(null); // eslint-disable-line no-unused-vars
   const html5QrCodeRef = useRef(null);
 
   useEffect(() => {

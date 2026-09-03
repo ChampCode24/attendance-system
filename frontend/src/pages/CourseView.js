@@ -43,10 +43,11 @@ const CourseView = () => {
   const [showLocationConsent, setShowLocationConsent] = useState(false);
 
   useEffect(() => {
-    fetchStudents();
-    fetchSessions();
-    fetchRiskScores();
-  }, [courseId]);
+  fetchStudents();
+  fetchSessions();
+  fetchRiskScores();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [courseId]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
