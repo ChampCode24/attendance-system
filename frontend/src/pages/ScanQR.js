@@ -28,31 +28,40 @@ const ScanQR = () => {
 }, []);
 
   const requestPermissions = async () => {
-    setPermissionStep('requesting');
-    setPermissionError('');
+  setPermissionStep('requesting');
+  setPermissionError('');
 
+  try {
+    // Request camera permission first
     try {
-      // Request camera permission
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    } catch (cameraErr) {
+      setPermissionStep('denied');
+      setPermissionError(`Camera access failed: ${cameraErr.message}. Please allow camera access in your browser settings.`);
+      return;
+    }
 
-      // Request location permission
+    // Request location permission
+    try {
       await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 10000,
+          timeout: 15000,
+          enableHighAccuracy: false,
         });
       });
-
-      setPermissionStep('granted');
-      startScanner();
-    } catch (err) {
+    } catch (locationErr) {
       setPermissionStep('denied');
-      if (err.name === 'NotAllowedError' || err.code === 1) {
-        setPermissionError('Camera or location permission was denied. Please enable both in your browser settings and try again.');
-      } else {
-        setPermissionError('Could not access camera or location. Please check your browser settings.');
-      }
+      setPermissionError(`Location access failed: ${locationErr.message}. Please allow location access in your browser settings.`);
+      return;
     }
-  };
+
+    setPermissionStep('granted');
+    startScanner();
+  } catch (err) {
+    setPermissionStep('denied');
+    setPermissionError(`Permission error: ${err.message}`);
+  }
+};
 
   const startScanner = () => {
     setScanning(true);
