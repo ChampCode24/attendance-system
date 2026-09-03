@@ -37,7 +37,7 @@ const Register = () => {
         email: formData.email,
         password: formData.password,
         options: {
-          emailRedirectTo: 'http://localhost:3000/verify',
+          emailRedirectTo: 'https://smart-attendance-system-qr.vercel.app/verify',
         }
       });
 

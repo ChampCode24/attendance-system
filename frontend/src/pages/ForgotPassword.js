@@ -17,7 +17,7 @@ const ForgotPassword = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'http://localhost:3000/reset-password',
+        redirectTo: 'https://smart-attendance-system-qr.vercel.app/reset-password',
       });
 
       if (error) throw error;
