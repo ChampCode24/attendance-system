@@ -44,11 +44,12 @@ const ScanQR = () => {
     // Request location permission
     try {
       await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 15000,
-          enableHighAccuracy: false,
-        });
-      });
+  navigator.geolocation.getCurrentPosition(resolve, reject, {
+    timeout: 30000,
+    enableHighAccuracy: false,
+    maximumAge: 60000,
+  });
+});
     } catch (locationErr) {
       setPermissionStep('denied');
       setPermissionError(`Location access failed: ${locationErr.message}. Please allow location access in your browser settings.`);
