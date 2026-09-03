@@ -24,7 +24,7 @@ const toNigerianDate = (dateString) => {
 };
 
 const Announcements = () => {
-  const { user, session } = useAuth();
+  const { } = useAuth();
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState('');
   const [announcements, setAnnouncements] = useState([]);
@@ -34,6 +34,7 @@ const Announcements = () => {
 
   useEffect(() => {
     fetchCourses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchCourses = async () => {
@@ -113,7 +114,6 @@ const Announcements = () => {
     }
   };
 
-  const totalUnread = Object.values(unreadCounts).reduce((a, b) => a + b, 0);
 
   return (
     <div className="dashboard-container">

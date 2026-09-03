@@ -5,7 +5,7 @@ import FingerprintJS from '@fingerprintjs/fingerprintjs';
 import API from '../api/axios';
 
 const ScanQR = () => {
-  const { courseId: _courseId } = useParams();
+  useParams();
   const navigate = useNavigate();
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
