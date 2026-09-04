@@ -413,110 +413,129 @@ router.post('/end-session/:sessionId', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'Session not found.' });
     }
 
-    // Get all sessions for this course
-    const { data: allSessions } = await supabase
-      .from('sessions')
-      .select('*')
-      .eq('course_id', session.course_id)
-      .order('created_at', { ascending: true });
+    // Respond immediately so the UI doesn't hang
+    res.json({ message: 'Session ended successfully.' });
 
-    if (!allSessions || allSessions.length < 4) {
-      return res.json({ message: 'Session ended. Not enough sessions yet for risk analysis.' });
-    }
-
-    // Get all enrolled students
-    const { data: enrolments } = await supabase
-      .from('enrolments')
-      .select('student_id, users(id, name, matric_number)')
-      .eq('course_id', session.course_id);
-
-    // Get course and lecturer info
-    const { data: course } = await supabase
-      .from('courses')
-      .select('course_code, course_title, lecturer_id')
-      .eq('id', session.course_id)
-      .single();
-
-    const { data: lecturer } = await supabase
-      .from('users')
-      .select('name, email, title')
-      .eq('id', req.user.id)
-      .single();
-
-    const atRiskStudents = [];
-
-    for (const enrolment of enrolments) {
-      const student = enrolment.users;
-
-      const { data: logs } = await supabase
-        .from('attendance_logs')
-        .select('*, sessions(created_at, expires_at)')
-        .eq('student_id', student.id)
-        .in('session_id', allSessions.map(s => s.id));
-
-      const mappedLogs = (logs || []).map(log => ({
-        ...log,
-        session_start: log.sessions?.created_at,
-        session_end: log.sessions?.expires_at,
-      }));
-
-      const allLogs = allSessions.map(s => {
-        const log = mappedLogs.find(l => l.session_id === s.id);
-        return log || {
-          status: 'absent',
-          session_id: s.id,
-          session_start: s.created_at,
-          session_end: s.expires_at,
-        };
-      });
-
-      const result = calculateRiskScore(allLogs, allSessions.length);
-
-      if (result && result.isAtRisk) {
-        atRiskStudents.push({ student, result });
-      }
-    }
-
-    // Send one email per at risk student per session
-    for (const { student, result } of atRiskStudents) {
+    // Run risk analysis and email sending in the background
+    (async () => {
       try {
-        // Check if email already sent for this student in this session
-        const { data: alreadySent } = await supabase
-          .from('risk_notifications')
-          .select('id')
-          .eq('student_id', student.id)
-          .eq('session_id', req.params.sessionId)
+        // Get all sessions for this course
+        const { data: allSessions } = await supabase
+          .from('sessions')
+          .select('*')
+          .eq('course_id', session.course_id)
+          .order('created_at', { ascending: true });
+
+        if (!allSessions || allSessions.length < 4) return;
+
+        // Get all enrolled students
+        const { data: enrolments } = await supabase
+          .from('enrolments')
+          .select('student_id, users(id, name, matric_number)')
+          .eq('course_id', session.course_id);
+
+        // Get course and lecturer info
+        const { data: course } = await supabase
+          .from('courses')
+          .select('course_code, course_title, lecturer_id')
+          .eq('id', session.course_id)
           .single();
 
-        if (alreadySent) continue;
+        const { data: lecturer } = await supabase
+          .from('users')
+          .select('name, email, title')
+          .eq('id', req.user.id)
+          .single();
 
-        await sendAtRiskEmail(
-          lecturer.email,
-          `${lecturer.title} ${lecturer.name}`,
-          student.name,
-          student.matric_number,
-          `${course.course_code} - ${course.course_title}`,
-          result.attendanceRate,
-          result.riskScore
-        );
+        console.log('Lecturer:', lecturer);
+        console.log('Total sessions:', allSessions.length);
+        console.log('Enrolled students:', enrolments?.length);
 
-        // Record that email was sent
-        await supabase
-          .from('risk_notifications')
-          .insert([{
-            student_id: student.id,
-            course_id: session.course_id,
-            session_id: req.params.sessionId,
-          }]);
-      } catch (emailErr) {
-        console.error('Failed to send at risk email:', emailErr);
+        const atRiskStudents = [];
+
+        for (const enrolment of enrolments) {
+          const student = enrolment.users;
+
+          const { data: logs } = await supabase
+            .from('attendance_logs')
+            .select('*, sessions(created_at, expires_at)')
+            .eq('student_id', student.id)
+            .in('session_id', allSessions.map(s => s.id));
+
+          const mappedLogs = (logs || []).map(log => ({
+            ...log,
+            session_start: log.sessions?.created_at,
+            session_end: log.sessions?.expires_at,
+          }));
+
+          const allLogs = allSessions.map(s => {
+            const log = mappedLogs.find(l => l.session_id === s.id);
+            return log || {
+              status: 'absent',
+              session_id: s.id,
+              session_start: s.created_at,
+              session_end: s.expires_at,
+            };
+          });
+
+          const result = calculateRiskScore(allLogs, allSessions.length);
+
+          console.log(`Student: ${student.name}, Risk: ${result?.riskScore}, isAtRisk: ${result?.isAtRisk}`);
+
+          if (result && result.isAtRisk) {
+            atRiskStudents.push({ student, result });
+          }
+        }
+
+        console.log('At risk students:', atRiskStudents.length);
+
+        // Send one email per at risk student per session
+        for (const { student, result } of atRiskStudents) {
+          try {
+            // Check if email already sent for this student in this session
+            const { data: alreadySent } = await supabase
+              .from('risk_notifications')
+              .select('id')
+              .eq('student_id', student.id)
+              .eq('session_id', req.params.sessionId)
+              .single();
+
+            if (alreadySent) {
+              console.log('Email already sent for:', student.name);
+              continue;
+            }
+
+            console.log('Sending email to:', lecturer.email, 'for student:', student.name);
+
+            await sendAtRiskEmail(
+              lecturer.email,
+              `${lecturer.title} ${lecturer.name}`,
+              student.name,
+              student.matric_number,
+              `${course.course_code} - ${course.course_title}`,
+              result.attendanceRate,
+              result.riskScore
+            );
+
+            console.log('Email sent successfully for:', student.name);
+
+            // Record that email was sent
+            await supabase
+              .from('risk_notifications')
+              .insert([{
+                student_id: student.id,
+                course_id: session.course_id,
+                session_id: req.params.sessionId,
+              }]);
+          } catch (emailErr) {
+            console.error('Failed to send at risk email:', emailErr);
+          }
+        }
+      } catch (bgErr) {
+        console.error('Background risk analysis error:', bgErr);
       }
-    }
+    })();
 
-    res.json({
-      message: `Session ended. ${atRiskStudents.length} at-risk student(s) flagged.`,
-      atRiskCount: atRiskStudents.length,
-    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error while ending session.' });
